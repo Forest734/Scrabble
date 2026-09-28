@@ -389,6 +389,22 @@ function panBoard(from, dx, dy) {
   applyZoom(false);
 }
 
+// Safari on iPhone can still zoom the whole page on a double tap despite
+// touch-action: manipulation. Cancelling the second tap's touchend stops it.
+// That tap's pointer events have already fired, so the board still zooms.
+let lastTouchEnd = -Infinity;
+
+// touchend goes to the element the touch started on, which a render may have
+// taken out of the page by then, so listen there rather than on the document.
+function onTouchStart(e) {
+  e.target.addEventListener('touchend', onTouchEnd, { once: true });
+}
+
+function onTouchEnd(e) {
+  if (e.cancelable && e.timeStamp - lastTouchEnd < DOUBLE_TAP_MS) e.preventDefault();
+  lastTouchEnd = e.timeStamp;
+}
+
 const snapshot = () => ({ pending: new Map(pending), selected, cursor, typed: [...typed] });
 
 /**
@@ -703,6 +719,7 @@ function bindEvents() {
   document.addEventListener('pointermove', onPointerMove);
   document.addEventListener('pointerup', onPointerUp);
   document.addEventListener('pointercancel', onPointerCancel);
+  document.addEventListener('touchstart', onTouchStart);
 
   $('#play').addEventListener('click', doPlay);
   $('#recall').addEventListener('click', recall);

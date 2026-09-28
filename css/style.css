@@ -32,6 +32,10 @@
 
 * { box-sizing: border-box; }
 
+/* A double tap zooms the board, not the page, so turn off the browser's own
+   double-tap zoom everywhere. Pinch zoom still works. */
+html { touch-action: manipulation; }
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -126,9 +130,8 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
 
 /* --- Board -------------------------------------------------------------- */
 
-/* The board zooms inside this frame (main.js sets its transform). The frame
-   turns off the browser's own double-tap zoom, and while zoomed, one finger
-   pans the board instead of scrolling the page. */
+/* The board zooms inside this frame (main.js sets its transform). While
+   zoomed, one finger pans the board instead of scrolling the page. */
 .board-view {
   width: min(100%, max(320px, calc(100dvh - 285px)), 780px);
   aspect-ratio: 1;
@@ -136,7 +139,6 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
   background: var(--grid);
   border-radius: 12px;
   box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, .55);
-  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
