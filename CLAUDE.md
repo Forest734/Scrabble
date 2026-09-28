@@ -16,6 +16,11 @@ node --test --test-name-pattern="bingo" # one test
 npm run words -- <enable1.txt>          # rebuild data/words.txt
 ```
 
+**Deploy:** GitHub Pages serves the `main` branch root as-is at
+<https://forest734.github.io/Scrabble/>, so pushing to `main` deploys. `.nojekyll` turns off
+Jekyll. Every path in the page is relative, so it runs under the `/Scrabble/` subpath. Keep new
+paths relative too.
+
 `node --check js/*.js` catches syntax errors in the page script. Tests cover `rules.js`,
 `dictionary.js` and `ai.js` only, so check changes to `main.js` or the CSS in a browser.
 Headless Chrome works for screenshots and for driving the page over CDP (see `~/dev/Deadbase/CLAUDE.md`

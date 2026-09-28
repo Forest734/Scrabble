@@ -141,7 +141,8 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
   user-select: none;
   -webkit-user-select: none;
 }
-@media (max-width: 900px) { .board { width: 100%; } }
+/* Stacked layout: leave room below the board for the rack and buttons. */
+@media (max-width: 900px) { .board { width: min(100%, max(260px, calc(100dvh - 365px))); } }
 
 .cell {
   position: relative;

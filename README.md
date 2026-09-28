@@ -5,6 +5,10 @@ step and no dependencies: plain HTML, CSS and JavaScript modules.
 
 ## Play
 
+Online, including on a phone: **<https://forest734.github.io/Scrabble/>**
+
+Or locally:
+
 ```sh
 npm start          # python3 -m http.server 8000
 ```
