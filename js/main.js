@@ -343,8 +343,9 @@ function clickCell(idx) {
 }
 
 // --- Zoom ----------------------------------------------------------------
-// Squares are small on a phone, so a double tap on the board zooms it in
-// around that point, and one finger pans it. The rack stays where it is.
+// Squares are small on a phone, so a double tap (or double click) on the board
+// zooms it in around that point, and dragging the board pans it. The rack
+// stays where it is.
 // x and y are the board's offset as a fraction of its size, so they stay
 // right when the window resizes.
 
@@ -353,7 +354,7 @@ const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_PX = 30;
 
 let zoom = { scale: 1, x: 0, y: 0 };
-let lastTap = null; // { time, x, y, undo } after a touch tap on the board
+let lastTap = null; // { time, x, y, undo } after a tap on the board
 
 function applyZoom(animate = true) {
   const board = $('#board');
@@ -395,10 +396,6 @@ const snapshot = () => ({ pending: new Map(pending), selected, cursor, typed: [.
  * undoes the first tap and zooms instead, so a double tap does nothing else.
  */
 function tapBoard(p, e, action) {
-  if (e.pointerType !== 'touch') {
-    action();
-    return;
-  }
   const t = lastTap;
   if (t && p.downAt - t.time < DOUBLE_TAP_MS && Math.hypot(e.clientX - t.x, e.clientY - t.y) < DOUBLE_TAP_PX) {
     lastTap = null;

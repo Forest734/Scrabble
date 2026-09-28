@@ -47,9 +47,10 @@ for the pattern).
   touch alike), not HTML5 DnD. A press without movement counts as a tap. Only the primary pointer
   starts a press, so a second finger can't take over a drag. Tiles placed but not yet
   played live only in `pending` (square → `{ tileId, letter }`) and aren't saved.
-- **Board zoom** (touch only): a double tap on the board scales `#board` 2× with a CSS transform
-  inside the clipping `#board-view`, and one finger pans it. The second tap undoes the first
-  tap's effect. Drop targets come from `elementFromPoint`, which respects the transform.
+- **Board zoom**: a double tap or double click on the board scales `#board` 2× with a CSS
+  transform inside the clipping `#board-view`, and dragging the board pans it. The second tap
+  undoes the first tap's effect, so a fast double click on a square zooms rather than switching
+  the cursor between across and down. Drop targets come from `elementFromPoint`, which respects the transform.
 
 Tiles have stable numeric `id`s. A blank is `letter: '?'` on the rack and `{ letter, blank:
 true }` on the board. Blanks score 0.
