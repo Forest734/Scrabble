@@ -126,9 +126,27 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
 
 /* --- Board -------------------------------------------------------------- */
 
-.board {
+/* The board zooms inside this frame (main.js sets its transform). The frame
+   turns off the browser's own double-tap zoom, and while zoomed, one finger
+   pans the board instead of scrolling the page. */
+.board-view {
   width: min(100%, max(320px, calc(100dvh - 285px)), 780px);
   aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--grid);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, .55);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.board-view.zoomed { touch-action: none; }
+/* Stacked layout: leave room below the board for the rack and buttons. */
+@media (max-width: 900px) { .board-view { width: min(100%, max(260px, calc(100dvh - 365px))); } }
+
+.board {
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-columns: repeat(15, minmax(0, 1fr));
   grid-template-rows: repeat(15, minmax(0, 1fr));
@@ -136,13 +154,14 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
   padding: 5px;
   background: var(--grid);
   border-radius: 12px;
-  box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0, 0, 0, .55);
   container-type: inline-size;
-  user-select: none;
-  -webkit-user-select: none;
+  transform-origin: 0 0;
+  transition: transform .25s ease;
 }
-/* Stacked layout: leave room below the board for the rack and buttons. */
-@media (max-width: 900px) { .board { width: min(100%, max(260px, calc(100dvh - 365px))); } }
+.board.panning { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .board { transition: none; }
+}
 
 .cell {
   position: relative;
@@ -199,6 +218,10 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
   box-shadow: inset 0 -0.06em 0 var(--tile-edge), 0 0.03em 0.08em rgba(0, 0, 0, .55);
   touch-action: none;
   cursor: grab;
+  /* A long press mustn't select the letter or open a callout mid-drag. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .tile .l { font-size: .54em; font-weight: 800; line-height: 1; transform: translateX(-6%); }
 .tile .p {
@@ -212,8 +235,9 @@ button.primary:hover:not(:disabled) { background: #f7c35e; border-color: transpa
 }
 .tile.blank .l { color: var(--blank-ink); }
 
-.cell .tile { font-size: 6.1cqi; cursor: default; }
-.cell .tile.pending { cursor: grab; }
+/* Played tiles don't drag, so a touch on them can still scroll the page. */
+.cell .tile { font-size: 6.1cqi; cursor: default; touch-action: manipulation; }
+.cell .tile.pending { cursor: grab; touch-action: none; }
 
 .tile.pending {
   background: linear-gradient(180deg, #fff8e6, #f2e0b4);

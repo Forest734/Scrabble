@@ -342,22 +342,97 @@ function clickCell(idx) {
   render();
 }
 
+// --- Zoom ----------------------------------------------------------------
+// Squares are small on a phone, so a double tap on the board zooms it in
+// around that point, and one finger pans it. The rack stays where it is.
+// x and y are the board's offset as a fraction of its size, so they stay
+// right when the window resizes.
+
+const ZOOM = 2;
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 30;
+
+let zoom = { scale: 1, x: 0, y: 0 };
+let lastTap = null; // { time, x, y, undo } after a touch tap on the board
+
+function applyZoom(animate = true) {
+  const board = $('#board');
+  board.classList.toggle('panning', !animate);
+  board.style.transform = zoom.scale === 1 ? '' : `translate(${zoom.x * 100}%, ${zoom.y * 100}%) scale(${zoom.scale})`;
+  $('#board-view').classList.toggle('zoomed', zoom.scale > 1);
+}
+
+function resetZoom() {
+  zoom = { scale: 1, x: 0, y: 0 };
+  applyZoom(false);
+}
+
+/** Zooms in so the board point under (x, y) stays put, or zooms back out. */
+function toggleZoom(x, y) {
+  if (zoom.scale > 1) {
+    zoom = { scale: 1, x: 0, y: 0 };
+  } else {
+    const r = $('#board-view').getBoundingClientRect();
+    const fx = (x - r.left) / r.width;
+    const fy = (y - r.top) / r.height;
+    zoom = { scale: ZOOM, x: fx * (1 - ZOOM), y: fy * (1 - ZOOM) };
+  }
+  applyZoom();
+}
+
+function panBoard(from, dx, dy) {
+  const r = $('#board-view').getBoundingClientRect();
+  const clamp = (v) => Math.min(0, Math.max(1 - zoom.scale, v));
+  zoom.x = clamp(from.x + dx / r.width);
+  zoom.y = clamp(from.y + dy / r.height);
+  applyZoom(false);
+}
+
+const snapshot = () => ({ pending: new Map(pending), selected, cursor, typed: [...typed] });
+
+/**
+ * Runs a tap on the board, unless it's the second tap of a double tap. Then it
+ * undoes the first tap and zooms instead, so a double tap does nothing else.
+ */
+function tapBoard(p, e, action) {
+  if (e.pointerType !== 'touch') {
+    action();
+    return;
+  }
+  const t = lastTap;
+  if (t && p.downAt - t.time < DOUBLE_TAP_MS && Math.hypot(e.clientX - t.x, e.clientY - t.y) < DOUBLE_TAP_PX) {
+    lastTap = null;
+    pending.clear();
+    for (const [idx, v] of t.undo.pending) pending.set(idx, v);
+    ({ selected, cursor } = t.undo);
+    typed = t.undo.typed;
+    toggleZoom(e.clientX, e.clientY);
+    render();
+    return;
+  }
+  lastTap = { time: e.timeStamp, x: e.clientX, y: e.clientY, undo: snapshot() };
+  action();
+}
+
 // --- Dragging ------------------------------------------------------------
 // Pointer events rather than HTML drag-and-drop, so touch works the same as
-// a mouse. A press that doesn't move is a tap.
+// a mouse. A press that doesn't move is a tap. Only the primary pointer counts,
+// so a second finger touching the screen can't hijack a drag.
 
 let press = null;
 
 function onPointerDown(e) {
-  if (e.button !== 0 || !game) return;
+  if (e.button !== 0 || !e.isPrimary || !game) return;
+  if (press) clearDrag(press); // a press whose pointerup never came
   const tile = e.target.closest('.tile[data-tile]');
   const cell = e.target.closest('.cell');
   const fromIdx = cell ? Number(cell.dataset.idx) : null;
+  const at = { x: e.clientX, y: e.clientY, pointer: e.pointerId, downAt: e.timeStamp };
   if (tile && (fromIdx == null || pending.has(fromIdx))) {
-    press = { id: Number(tile.dataset.tile), el: tile, fromIdx, x: e.clientX, y: e.clientY, pointer: e.pointerId };
+    press = { id: Number(tile.dataset.tile), el: tile, fromIdx, ...at };
     e.preventDefault();
-  } else if (cell) {
-    press = { cellIdx: fromIdx, pointer: e.pointerId };
+  } else if (e.target.closest('#board')) {
+    press = { cellIdx: fromIdx, zoom: { ...zoom }, ...at };
   }
 }
 
@@ -383,7 +458,17 @@ function dropTarget(x, y) {
 }
 
 function onPointerMove(e) {
-  if (!press?.el || e.pointerId !== press.pointer) return;
+  if (!press || e.pointerId !== press.pointer) return;
+  if (!press.el) {
+    // A press on the board, not on a tile: pans the board while zoomed.
+    const dx = e.clientX - press.x;
+    const dy = e.clientY - press.y;
+    if (zoom.scale === 1 || (!press.panning && Math.hypot(dx, dy) < 6)) return;
+    press.panning = true;
+    lastTap = null;
+    panBoard(press.zoom, dx, dy);
+    return;
+  }
   if (!press.ghost) {
     if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < 6) return;
     press.ghost = press.el.cloneNode(true);
@@ -404,22 +489,24 @@ function onPointerUp(e) {
   if (!press || e.pointerId !== press.pointer) return;
   const p = press;
   press = null;
-  if (p.cellIdx != null) {
+  if (!p.el) {
+    if (p.panning) return;
     const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest('.cell');
-    if (cell && Number(cell.dataset.idx) === p.cellIdx) clickCell(p.cellIdx);
+    tapBoard(p, e, () => {
+      if (cell && p.cellIdx != null && Number(cell.dataset.idx) === p.cellIdx) clickCell(p.cellIdx);
+    });
     return;
   }
   if (!p.ghost) {
     // A tap: pick up a rack tile, or send a placed tile home.
-    if (p.fromIdx != null) takeBack(p.fromIdx);
+    if (p.fromIdx != null) tapBoard(p, e, () => takeBack(p.fromIdx));
     else {
       selected = selected === p.id ? null : p.id;
       render();
     }
     return;
   }
-  p.ghost.remove();
-  for (const c of document.querySelectorAll('.cell.drop')) c.classList.remove('drop');
+  clearDrag(p);
   const target = dropTarget(e.clientX, e.clientY);
   if (target?.idx != null) {
     placeTile(p.id, target.idx, p.fromIdx);
@@ -434,10 +521,18 @@ function onPointerUp(e) {
   render();
 }
 
-function onPointerCancel() {
-  if (press?.ghost) press.ghost.remove();
+function onPointerCancel(e) {
+  if (!press || e.pointerId !== press.pointer) return;
+  clearDrag(press);
   press = null;
   render();
+}
+
+function clearDrag(p) {
+  if (!p.ghost) return;
+  p.ghost.remove();
+  p.el.classList.remove('dragging');
+  for (const c of document.querySelectorAll('.cell.drop')) c.classList.remove('drop');
 }
 
 // --- Turns ---------------------------------------------------------------
@@ -566,6 +661,7 @@ function startGame(level, computerFirst) {
   const you = { name: 'You', kind: 'human' };
   const cpu = { name: 'Computer', kind: 'computer', level };
   game = newGame(computerFirst ? [cpu, you] : [you, cpu]);
+  resetZoom();
   pending.clear();
   selected = null;
   cursor = null;
